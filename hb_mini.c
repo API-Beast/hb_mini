@@ -4377,6 +4377,46 @@ static const uint8_t *colr_base_glyph_paint (colr_t *c, hb_codepoint_t glyph)
   return NULL;
 }
 
+static int colr_v0_layers (colr_t *c, hb_codepoint_t glyph, unsigned *first, unsigned *n)
+{
+  int min = 0, max = (int) c->num_base - 1;
+  while (min <= max)
+  {
+    int mid = ((unsigned) min + (unsigned) max) / 2;
+    const uint8_t *r = c->base_glyphs + mid * 6;
+    if (glyph < rd16 (r)) max = mid - 1;
+    else if (glyph > rd16 (r)) min = mid + 1;
+    else
+    {
+      *first = rd16 (r + 2);
+      *n = *first > c->num_layers ? 0 : HB_MIN (rd16 (r + 4), c->num_layers - *first);
+      return 1;
+    }
+  }
+  return 0;
+}
+
+unsigned int
+hb_ot_color_glyph_get_layers (hb_face_t *face, hb_codepoint_t glyph, unsigned int start_offset,
+			      unsigned int *layer_count, hb_ot_color_layer_t *layers)
+{
+  colr_t *c = face_colr (face);
+  unsigned first = 0, n = 0;
+  if (c && c->valid && c->base_glyphs) colr_v0_layers (c, glyph, &first, &n);
+  if (layer_count)
+  {
+    unsigned count = start_offset < n ? HB_MIN (*layer_count, n - start_offset) : 0;
+    for (unsigned i = 0; i < count && layers; i++)
+    {
+      const uint8_t *l = c->layers + (first + start_offset + i) * 4;
+      layers[i].glyph = rd16 (l);
+      layers[i].color_index = rd16 (l + 2);
+    }
+    *layer_count = count;
+  }
+  return n;
+}
+
 hb_bool_t
 hb_ot_color_glyph_has_paint (hb_face_t *face, hb_codepoint_t glyph)
 {
@@ -4869,22 +4909,9 @@ static int colr_paint_glyph (hb_font_t *font, hb_codepoint_t glyph, const paint_
   }
   else
   {
-    const uint8_t *bg = colr->base_glyphs;
-    int min = 0, max = (int) colr->num_base - 1;
-    const uint8_t *rec = NULL;
-    while (min <= max)
+    unsigned first, n;
+    if (colr_v0_layers (colr, glyph, &first, &n))
     {
-      int mid = ((unsigned) min + (unsigned) max) / 2;
-      const uint8_t *r = bg + mid * 6;
-      if (glyph < rd16 (r)) max = mid - 1;
-      else if (glyph > rd16 (r)) min = mid + 1;
-      else { rec = r; break; }
-    }
-    if (rec)
-    {
-      unsigned first = rd16 (rec + 2), n = rd16 (rec + 4);
-      if (first > colr->num_layers) n = 0;
-      else n = HB_MIN (n, colr->num_layers - first);
       for (unsigned i = 0; i < n; i++)
       {
 	const uint8_t *l = colr->layers + (first + i) * 4;

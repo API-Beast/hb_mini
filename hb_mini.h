@@ -111,7 +111,9 @@ float hb_style_get_value (hb_font_t *font, hb_style_tag_t style_tag);
 
 unsigned int hb_ot_var_get_axis_count (hb_face_t *face);
 unsigned int hb_ot_var_get_axis_infos (hb_face_t *face, unsigned int start_offset, unsigned int *axes_count, hb_ot_var_axis_info_t *axes_array);
+typedef struct hb_ot_color_layer_t { hb_codepoint_t glyph; unsigned int color_index; } hb_ot_color_layer_t;
 hb_bool_t hb_ot_color_glyph_has_paint (hb_face_t *face, hb_codepoint_t glyph);
+unsigned int hb_ot_color_glyph_get_layers (hb_face_t *face, hb_codepoint_t glyph, unsigned int start_offset, unsigned int *layer_count, hb_ot_color_layer_t *layers);
 hb_bool_t hb_ot_color_has_png (hb_face_t *face);
 
 hb_buffer_t *hb_buffer_create (void);
